@@ -1,0 +1,239 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>New page</title>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      font-family: sans-serif;
+      color: #eee;
+
+      background: radial-gradient(circle at top, #1a1a1a, #0d0d0d);
+      overflow: hidden;
+    }
+
+    .grid {
+      display: flex;
+      gap: 40px;
+      padding: 40px 50px;
+
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    /* ---------- MOVING WRAPPER ---------- */
+    a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      text-decoration: none;
+      color: #eee;
+
+      --accent: #4ea1ff;
+
+      position: relative;
+
+      will-change: transform;
+    }
+
+    /* ---------- ICON (THIS is what deforms) ---------- */
+    .icon {
+      width: 56px;
+      height: 56px;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      background: rgba(26,26,26,0.8);
+      border: 1px solid rgba(255,255,255,0.08);
+
+      border-radius: 16px;
+      margin-bottom: 8px;
+
+      position: relative;
+
+      will-change: transform;
+    }
+
+    .icon img {
+      width: 28px;
+      height: 28px;
+    }
+
+    /* ---------- TEXT (LOCKED - NEVER MOVES OR STRETCHES) ---------- */
+    .label {
+      text-align: center;
+      transform: none !important;
+    }
+
+    /* ---------- ORIGINAL STRONGER GLOW (RESTORED) ---------- */
+/* REMOVE icon glow entirely */
+.icon::after {
+  display: none;
+}
+
+/* TEXT GLOW (NEW SYSTEM) */
+.label {
+  position: relative;
+  text-align: center;
+}
+
+/* glow behind text but constrained */
+.label::after {
+  content: "";
+  position: absolute;
+
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+
+  width: 110%;
+  height: 16px;
+
+  background: var(--accent);
+  border-radius: 50%;
+
+  filter: blur(7px);
+  opacity: 0.1;
+
+  z-index: -1; /* IMPORTANT: stays behind text */
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+a:hover .label::after {
+  opacity: 0.25;
+}
+  </style>
+</head>
+
+<body>
+
+<div class="grid">
+
+  <a href="https://gemini.google.com/app" style="--accent:#8ab4f8;">
+    <div class="icon"><img src="https://www.gstatic.com/images/branding/product/1x/gemini_64dp.png"></div>
+    <div class="label">Gemini</div>
+  </a>
+
+  <a href="https://youtube.com" style="--accent:#ff3b3b;">
+    <div class="icon"><img src="https://www.google.com/s2/favicons?sz=64&domain=youtube.com"></div>
+    <div class="label">YouTube</div>
+  </a>
+
+  <a href="https://sol-rng.fandom.com/f" style="--accent:#b38cff;">
+    <div class="icon"><img src="https://static.wikia.nocookie.net/8724158c-bb46-451d-aab0-1c1c88c99391/scale-to-width/755"></div>
+    <div class="label">Auras</div>
+  </a>
+
+  <a href="https://elearning.ipvc.pt/ipvc2025/my/" style="--accent:#2ecc71;">
+    <div class="icon"><img src="https://cdn-icons-png.flaticon.com/512/29/29302.png"></div>
+    <div class="label">Moodle</div>
+  </a>
+
+</div>
+
+<script>
+const items = document.querySelectorAll(".grid a");
+
+let mouse = { x: 0, y: 0 };
+
+const grid = document.querySelector(".grid");
+
+grid.addEventListener("mousemove", (e) => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+grid.addEventListener("mouseleave", () => {
+  mouse.x = 0;
+  mouse.y = 0;
+});
+
+const state = new Map();
+
+items.forEach(el => {
+  state.set(el, {
+    x: 0,
+    y: 0,
+    sx: 1,
+    sy: 1
+  });
+});
+
+/* tuned magnet */
+const MAX_DIST = 200;
+const FORCE = 0.22;
+const DAMP = 0.36;
+
+function animate() {
+  items.forEach(el => {
+    const icon = el.querySelector(".icon");
+    const rect = el.getBoundingClientRect();
+    const s = state.get(el);
+
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    const dx = mouse.x - cx;
+    const dy = mouse.y - cy;
+
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const influence = Math.max(0, 1 - dist / MAX_DIST);
+
+    const targetX = dx * influence * FORCE;
+    const targetY = dy * influence * FORCE;
+
+    s.x += (targetX - s.x) * DAMP;
+    s.y += (targetY - s.y) * DAMP;
+
+    /* ---------- ICON STRETCH ONLY ---------- */
+    const angle = Math.atan2(dy, dx);
+
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle);
+
+    /* directional influence */
+    const stretchAmount = influence * 0.28;
+
+    /* stretch follows cursor direction */
+    const stretchX = 1 + Math.abs(dirX) * stretchAmount;
+    const stretchY = 1 + Math.abs(dirY) * stretchAmount;
+
+    /* add slight opposing squash for fluid feel */
+    const squashX = 1 - Math.abs(dirY) * stretchAmount * 0.6;
+    const squashY = 1 - Math.abs(dirX) * stretchAmount * 0.6;
+
+    const finalX = stretchX * squashX;
+    const finalY = stretchY * squashY;
+
+    s.sx += (finalX - s.sx) * 0.2;
+    s.sy += (finalY - s.sy) * 0.2;
+
+    /* apply transforms */
+    el.style.transform = `translate(${s.x}px, ${s.y}px)`;
+    icon.style.transform = `scale(${s.sx}, ${s.sy})`;
+  });
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+
+</body>
+</html>
